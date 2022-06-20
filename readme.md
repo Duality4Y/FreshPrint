@@ -3,9 +3,9 @@
 This tool allows you to download recipes from hello-fresh so that you can print them out.
 
 # Capabilities
-using selenium this script connects to a hello fresh website does some magic
-then creates some snapshots of the relevant elements on the page 
-depending on the command line options shows you the result or sends a print job.
+using selenium this script connects to a hello fresh website, does some magic
+then creates some snapshots of the relevant elements on the page and
+depending on the command line options given shows you the result or sends a print job.
 
 potentially in the future the script could be made to also generate only textually output it isn't hard to add.
 
@@ -25,6 +25,16 @@ optional arguments:
   --verbose                   enable verbose printing.
 ```
 
+# Requirements
+the following packages are required:
+ - python3
+ - selenium
+ - validators
+ - gecko-driver (apt install firefox-geckodriver)
+
+install requirements with pip:
+```$ pip install -r requirements.txt```
+
 # Config
 This program looks for a config file name Config.ini
 if one is not present then make sure to copy ExampleConfig.ini and rename it Config.ini
@@ -39,10 +49,3 @@ The site shows a cookie banner this section indicates what element to click in o
 ## [LinuxPrintingOpts]
 These options translate to ``lpr`` command-line options pretty much 1 to 1
 they will generate the -o options for that command.
-
-# Requirements
-the following packages are required:
- - python3
- - selenium
- - validators
- - gecko-driver (apt install firefox-geckodriver)

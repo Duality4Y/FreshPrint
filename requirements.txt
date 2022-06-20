@@ -1,0 +1,2 @@
+selenium==4.2.0
+validators==0.20.0
