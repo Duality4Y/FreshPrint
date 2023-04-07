@@ -8,12 +8,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 import os
+import io
 import sys
 import time
 import argparse
 import subprocess
 import validators
 import configparser
+
+from PIL import Image, ImageOps
 
 config = None
 
@@ -52,6 +55,14 @@ def FindElementClass(driver, className):
 def GetElementImage(driver, element):
 	return element.screenshot_as_png
 
+def ImageToGrayScale(imageRaw):
+	image = Image.open(io.BytesIO(imageRaw))
+	image = ImageOps.grayscale(image)
+	data = io.BytesIO()
+	image.save(data, format='PNG')
+
+	return data.getvalue()
+
 def GetRecipe(url):
 	""" Load the needed class descriptions for elements of interest. """
 	elementClasses = []
@@ -73,13 +84,15 @@ def GetRecipe(url):
 	body = driver.find_element_by_css_selector('body')
 	for i in range(0, 10):
 		body.send_keys(Keys.PAGE_DOWN)
-		time.sleep(0.7)
+		time.sleep(1.0)
 	
 	imageResults = []
 	for elementClass in elementClasses:
 		element = FindElementClass(driver, elementClass)
 		elementImage = GetElementImage(driver, element)
-		imageResults.append(elementImage)
+
+		grayscaled = ImageToGrayScale(elementImage)
+		imageResults.append(grayscaled)
 	
 	driver.quit()
 
@@ -121,6 +134,42 @@ def CheckConfigExists(config):
 	
 	raise argparse.ArgumentTypeError(f"No such file or directory, {config}")
 
+def Host(args):
+	from flask import Flask, render_template_string, request
+	formTemplate = """
+	<form "/data" method="POST">
+    	<p>Recipe URL <input type="text" name="recipe"/></p>
+	</form>
+	"""
+
+	app = Flask(__name__)
+
+	@app.route("/", methods=['GET', 'POST'])
+	def form():
+		if request.method == 'POST':
+			recipeUrl = request.form['recipe']
+			print(f"recipe url: {recipeUrl}")
+			images = []
+			try:
+				images = GetRecipe(recipeUrl)
+			except Exception as e:
+				print(f"got exception: {e}")
+				render_template_string(formTemplate)
+			if args.print:
+				print("Sending a recipe print job.")
+				SendToPrinter(images)
+			else:
+				print("Not sending a recipe print job.")
+			
+			if args.show:
+				print("Launching image viewer.")
+				ViewImages(images, args.output)
+			else:
+				print("Not showing images.")
+		
+		return render_template_string(formTemplate)
+	app.run(host='192.168.178.25', port=8080)
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Download and Print Hello-Fresh recipes.")
 	
@@ -128,14 +177,19 @@ if __name__ == "__main__":
 
 	parser.add_argument('-u', '--url',
 						type=ValidateHelloFreshUrl,
-						default="",
-						required=True,
+						default=None,
+						required=False,
 						help="recipe url")
 	parser.add_argument('-c', '--config',
 						type=CheckConfigExists,
 						default="Config.ini",
 						required=False,
 						help="Config to load, default is Config.ini")
+	parser.add_argument('--host',
+						default=False,
+						required=False,
+						action='store_true',
+						help='host recipe url entry page')
 	parser.add_argument('--print',
 						default=False,
 						required=False,
@@ -182,7 +236,14 @@ if __name__ == "__main__":
 
 	config = LoadConfig(configFilePath)
 
-	images = GetRecipe(args.url)
+	images = []
+	if args.url:
+		images = GetRecipe(args.url)
+
+	if args.host:
+		print("Start hosting at http://localhost:8080/")
+		Host(args)
+		exit(0)
 
 	if args.print:
 		print("Sending a recipe print job.")
